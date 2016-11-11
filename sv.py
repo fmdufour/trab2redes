@@ -9,12 +9,10 @@ from Queue import PriorityQueue
 TOKEN_VAZIO = "$$$$$$$$$$"
 TOKEN_RESERV = "$$$$$$$$$"
 
-UDP_IP = "127.0.0.1"
-UDP_PORT = 5005
+
 ESGOTOU_TEMPO = False
 PASSOU_1SEG = False
-PORTA_VIZINHO = int(sys.argv[2])
-IP_VIZINHO = UDP_IP
+
 
 def get_mensagem_console():
 	leu = False
@@ -30,6 +28,13 @@ def get_mensagem_console():
 					print "O Destino deve ser um numero de 1 a 4"
 					continue
 				int(campos[1])
+				if(int(campos[1]) < 0):
+					print "A prioridade deve ser um inteiro positivo"
+					continue
+
+				if(int(campos[1]) > 9 ):
+					print "A prioridade deve ser entre 1 e 9"
+					continue
 				return entrada		
 			else:
 				print "Digite a Mensagem no Formato <Destino> <Prioridade> <Msg>"		
@@ -92,8 +97,8 @@ def dono_token(mensagens, sock):
 		if(mensagens.qsize() > 0):			
 			msg = mensagens.get()[1]	
 
-			#print "Enviando Mensagem para " + IP_VIZINHO + ":" + str(PORTA_VIZINHO)
-			while(mensagens.qsize() == 0 and not ESGOTOU_TEMPO):
+
+			while(True):
 				sock.sendto(msg, (IP_VIZINHO, PORTA_VIZINHO))
 
 				msg, addr = sock.recvfrom(1024) 			
@@ -103,14 +108,17 @@ def dono_token(mensagens, sock):
 				#se alguem com maior prioridade reservar o token libera o token
 				if( priori_reserva > get_maior_priori(mensagens)):
 					#manda token reservado pra quem tem maior prioridade	
-					print "liberando TOKEN"			
+					print "$- Liberou Bastao Por Maior Prioridade"			
 					ESGOTOU_TEMPO = True
 					sock.sendto("$$" + str(priori_reserva) + TOKEN_RESERV, (IP_VIZINHO, PORTA_VIZINHO))						
 					return
 				msg = "0" + msg[1:]		
 
+				#verifica se tem mais alguma mensagem
+				if(not(mensagens.qsize() == 0 and not ESGOTOU_TEMPO)):
+					break
 			
-			#print "Recebeu de Volta a Msg:" + msg
+
 	#envia token ja que esgotou o tempo
 	sock.sendto(TOKEN_VAZIO, (IP_VIZINHO, PORTA_VIZINHO))	
 	
@@ -132,16 +140,19 @@ def main():
 	global PORTA_VIZINHO
 	global ESGOTOU_TEMPO
 
-	if(len(sys.argv) < 3):
+	if(len(sys.argv) < 5):
 		sys.exit("Informe os argumentos <IPBIND> <PORTABIND> <IP_VIZINHO> <PORTA_VIZINHO> <NUM_SERVIDOR>")
 
-	IP_VIZINHO = UDP_IP#int(sys.argv[1])
-	PORTA_VIZINHO = int(sys.argv[2])#int(sys.argv[2])	
-	porta_bind = int(sys.argv[1])	
+	ip_bind = sys.argv[1]
+	porta_bind = int(sys.argv[2])	
 
-	sock = cria_socket(UDP_IP, porta_bind)
+	IP_VIZINHO = sys.argv[3]
+	PORTA_VIZINHO = int(sys.argv[4])#int(sys.argv[2])	
+	
 
-	id_server = sys.argv[3]
+	sock = cria_socket(ip_bind, porta_bind)
+
+	id_server = sys.argv[5]
 
 	primeiro_server = True if id_server == "1" else False
 	
@@ -173,7 +184,7 @@ def main():
 						esta_com_token = True
 						ESGOTOU_TEMPO = False
 						start_thread_tempo()
-						print "$$$$ Pegou Token $$$$"
+						print "$+ Pegou Bastao"
 					else:
 						#repassa token vazio						
 						#print "Repassando Token Vazio..."
@@ -185,7 +196,7 @@ def main():
 						esta_com_token = True
 						ESGOTOU_TEMPO = False
 						start_thread_tempo()
-						print "$$$$ Pegou Token $$$$"
+						print "$+ Pegou Bastao"
 					else:
 						sock.sendto(msg, (IP_VIZINHO,PORTA_VIZINHO))		
 				else:
@@ -210,7 +221,7 @@ def main():
 				dono_token(mensagens, sock)
 				#como terminou tempo seta que nao esta com token
 				esta_com_token = False
-				print "$$$$--Perdeu Token--$$$$"
+				print "$- Perdeu Bastao"
 			
 		except Exception, e:
 			raise e
